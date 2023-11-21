@@ -1,13 +1,13 @@
 /*
-æœ¬ä½œä¸šä¸ºé»‘ç™½æ£‹å¯¹å¼ˆï¼Œä¸»è¦æ˜¯å¸®åŠ©å­¦ç”Ÿæ›´åŠ ç†Ÿç»ƒçš„æŒæ¡ç¨‹åºè®¾è®¡ã€‚æŒæ¡æ€ä¹ˆå»åˆ†æå’Œè®¾è®¡ç¨‹åºçš„åŠŸèƒ½ã€‚
-å®Œæˆä½œä¸šéœ€è¦äº”ä¸ªé˜¶æ®µï¼šåˆ†æè®¾è®¡ï¼Œç»˜åˆ¶æ£‹ç›˜ã€‚æ£€æµ‹æœ‰æ•ˆèµ°æ³•ã€‚äººç±»ç©å®¶èµ°æ³•ã€‚äººç±»ç©å®¶ä¸è®¡ç®—æœºä¸»ä½“å¾ªç¯ã€‚è®¡ç®—æœºèµ°æ³•ã€‚
+±¾×÷ÒµÎªºÚ°×Æå¶ÔŞÄ£¬Ö÷ÒªÊÇ°ïÖúÑ§Éú¸ü¼ÓÊìÁ·µÄÕÆÎÕ³ÌĞòÉè¼Æ¡£ÕÆÎÕÔõÃ´È¥·ÖÎöºÍÉè¼Æ³ÌĞòµÄ¹¦ÄÜ¡£
+Íê³É×÷ÒµĞèÒªÎå¸ö½×¶Î£º·ÖÎöÉè¼Æ£¬»æÖÆÆåÅÌ¡£¼ì²âÓĞĞ§×ß·¨¡£ÈËÀàÍæ¼Ò×ß·¨¡£ÈËÀàÍæ¼ÒÓë¼ÆËã»úÖ÷ÌåÑ­»·¡£¼ÆËã»ú×ß·¨¡£
 */
 
 #include<bits/stdc++.h>
 #include <graphics.h>
 using namespace std;
 
-class chess{
+class node{
     public:
         void draw();
     public:
@@ -23,43 +23,60 @@ class chess{
 void init();
 void drawChessboard();
 
+node chess[8][8];
+
 int main(){
     drawChessboard();
+    chess[2][2].draw();
     int a;
     scanf("%d", &a);
     return 0;
 }
 
-chess chesses[8][8];
+const int upLenth = 100, downLenth = 80, leftLenth = 80, rightLenth = 80, step = 60, N = 8;
+
 
 void drawChessboard(){
-    int step = 80;
-    int n = 8;
+    TCHAR strnum[8][3] = { _T("1"),_T("2") ,_T("3") ,_T("4"),_T("5") ,_T("6"), _T("7"), _T("8")};
+    TCHAR strabc[8][3] = { _T("A"),_T("B") ,_T("C") ,_T("D"),_T("E") ,_T("F"), _T("G"), _T("H")};
     
-    initgraph(20+(n+2)*step, 100+(n+2)*step, NOMINIMIZE);
+    initgraph(leftLenth+N*step+rightLenth+20, upLenth+N*step+downLenth+20, NOMINIMIZE);
     setbkcolor(WHITE);
     cleardevice();
     setbkmode(TRANSPARENT);
 
-    TCHAR strnum[8][3] = { _T("1"),_T("2") ,_T("3") ,_T("4"),_T("5") ,_T("6"), _T("7"), _T("8")};
-    TCHAR strabc[8][3] = { _T("A"),_T("B") ,_T("C") ,_T("D"),_T("E") ,_T("F"), _T("G"), _T("H")};
-    settextstyle(20, 0, _T("å®‹ä½“"));
-
     setfillcolor(RGB(255, 205, 150));
-    solidrectangle(step-20, step-20, (n+1)*step+40, (n+1)*step+40);
-    setlinestyle(PS_SOLID,2);//ç”»å®çº¿ï¼Œå®½åº¦ä¸ºä¸¤ä¸ªåƒç´ 
-	setcolor(RGB(0,0,0));//è®¾ç½®ä¸ºé»‘è‰²
-    for(int i = 1; i <= n+1; i++){
-        line(i*step+20,1*step+20,i*step+20,(n+1)*step+20);
-		line(1*step+20,i*step+20,(n+1)*step+20,i*step+20);
+    solidrectangle(leftLenth-20, upLenth-20, leftLenth+N*step+40, upLenth+N*step+40);
+    setlinestyle(PS_SOLID,2);//»­ÊµÏß£¬¿í¶ÈÎªÁ½¸öÏñËØ
+	setcolor(RGB(0,0,0));//ÉèÖÃÎªºÚÉ«
+    for(int i = 0; i <= N; i++){
+        line(i*step+leftLenth+20,upLenth+20,i*step+leftLenth+20,N*step+upLenth+20);
+		line(leftLenth+20,i*step+upLenth+20,N*step+leftLenth+20,i*step+upLenth+20);
     }
-    LOGFONT nowstyle;
-	gettextstyle(&nowstyle);
-	settextstyle(0, 0, NULL);
-	for (int i = 0; i < n; i++)
+
+    settextstyle(20, 0, _T("ËÎÌå"));
+	for (int i = 0; i < N; i++)
 	{
-		outtextxy(step*(i+1)+step/2+15, step-5, strnum[i]);
-		outtextxy(step, step*(i+1)+step/2+12, strabc[i]);
+		outtextxy(leftLenth+step*i+step/2+15, upLenth-5, strnum[i]);
+		outtextxy(leftLenth-5, upLenth+step*i+step/2+15, strabc[i]);
 	}
-	settextstyle(&nowstyle);
+
+    settextstyle(50, 0, _T("ËÎÌå"));
+    RECT r = {0, 0, leftLenth+N*step+rightLenth+20, upLenth-20};
+    drawtext(_T("ºÚ°×Æå"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    for (int i = 0; i < N; i++){
+        for (int j =0; j < N; j++){
+            chess[i][j].x = leftLenth+20+i*step+step/2;
+            chess[i][j].y = upLenth+20+i*step+step/2;
+        }
+    }
 }
+
+void node::draw(){
+    setfillcolor(BLACK);
+    setlinestyle(PS_SOLID, 0);
+    fillcircle(x-0.5, y-0.5, step/2-3);
+    return;
+}
+
