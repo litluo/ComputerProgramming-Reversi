@@ -15,7 +15,7 @@ class CHESS{
         int y = 0;
         bool used = 0;
         bool col = 0; // 0 for black, 1 for white
-        COLORREF color = BLACK;
+        COLORREF color = BLUE;
 };
 
 class BOX{
@@ -115,13 +115,35 @@ void BOX::draw(){
     return;
 }
 
+int checkLine(int x, int y, int dx, int dy, int col){
+    int i, j;
+    for (i = x+dx, j = y+dy; i >= 0 && i < 8 && j >= 0 && j < 8; i += dx, j += dy){
+        if (!chess[i][j].used) break;
+        if (chess[i][j].col == col && i == x+dx && j == y+dy) break;
+        if (chess[i][j].col == col && (i != x+dx != j != y+dy)){
+            if(dx != 0)
+                return (i-x)/dx - 1;
+            return (j-y)/dy - 1;
+        }
+    }
+    return 0;
+}
+
+void reversiLine(int x, int y, int dx, int dy, int cnt, int col){
+    for (int i = x+dx, j = y+dy; cnt; i += dx, j += dy, cnt--){
+        chess[i][j].col = col;
+        chess[i][j].color = col ? WHITE : BLACK;
+        chess[i][j].draw();
+    }
+}
+
 bool check(int x, int y, int col){
     int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     int dy[8] = {1, 1, 0, -1, -1, -1, 0, 1};
     for (int k = 0; k < 8; k++){
-        for (int i = x+dx[k], j = y+dy[k]; i >= 0 && i < 8 && i >= 0 && i < 8; i += dx[k], j += dy[x]){
-            if (!chess[i][j].used) break;
-            if (chess[i][j].col == col && i != x+dx[k] && j != y+dy[k]) return true;
+        int cnt = checkLine(x, y, dx[k], dy[k], col);
+        if (cnt){
+            return true;
         }
     }
     return false;
@@ -131,17 +153,9 @@ void reversi(int x, int y, int col){
     int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     int dy[8] = {1, 1, 0, -1, -1, -1, 0, 1};
     for (int k = 0; k < 8; k++){
-        for (int i = x+dx[k], j = y+dy[k]; i >= 0 && i < 8 && i >= 0 && i < 8; i += dx[k], j += dy[x]){
-            if (!chess[i][j].used) break;
-            if (chess[x+dx[k]][y+dy[k]].col == col) break;
-            if (chess[i][j].col == col){
-                for (int ii = x+dx[k], jj = y+dy[k]; ii != i && jj != j; ii += dx[k], jj += dy[k]){
-                    chess[ii][jj].col = col;
-                    chess[ii][jj].color = col ? WHITE : BLACK;
-                    chess[ii][jj].draw();
-                }
-                break;
-            }
+        int cnt = checkLine(x, y, dx[k], dy[k], col);
+        if (cnt){
+            reversiLine(x, y, dx[k], dy[k], cnt, col);
         }
     }
 }
@@ -165,6 +179,7 @@ void game(){
                     if (mouse.mkLButton){
                         if (!chess[i][j].used){
                             if (check(i, j, player)){
+                                chess[i][j].col = player;
                                 chess[i][j].color = player ? WHITE : BLACK;
                                 chess[i][j].draw();
                                 chess[i][j].used = 1;
