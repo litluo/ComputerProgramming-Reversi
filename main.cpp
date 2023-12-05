@@ -27,31 +27,47 @@ class BOX{
         void draw();
 };
 
+class SilentChess{
+    public:
+        int x = 0;
+        int y = 0;
+        bool used = 0;
+        bool col = 0; // 0 for black, 1 for white
+};
+
+struct TreeNode{
+    int x = 0;
+    int y = 0;
+    int cnt = 0;
+    int col = 0;
+    TreeNode *next = NULL;
+};
+
+class RoxannePlayer{
+    public:
+        int roxanne_table[N][N] = {0};
+};
+
 void init();
 void game();
 void drawChessboard();
 
 CHESS chess[8][8];
 BOX box[8][8];
+const int upLenth = 100, downLenth = 100, leftLenth = 80, rightLenth = 80, step = 60, N = 8;
+
 
 int main(){
+    initgraph(leftLenth+N*step+rightLenth+20, upLenth+N*step+downLenth+20, NOMINIMIZE);
     drawChessboard();
     game();
-    int a;
-    scanf("%d", &a);
-    scanf("%d", &a);
     return 0;
 }
-
-const int upLenth = 100, downLenth = 100, leftLenth = 80, rightLenth = 80, step = 60, N = 8;
-bool player;
-
 
 void drawChessboard(){
     TCHAR strnum[8][3] = { _T("1"),_T("2") ,_T("3") ,_T("4"),_T("5") ,_T("6"), _T("7"), _T("8")};
     TCHAR strabc[8][3] = { _T("A"),_T("B") ,_T("C") ,_T("D"),_T("E") ,_T("F"), _T("G"), _T("H")};
     
-    initgraph(leftLenth+N*step+rightLenth+20, upLenth+N*step+downLenth+20, NOMINIMIZE);
     setbkcolor(WHITE);
     cleardevice();
     setbkmode(TRANSPARENT);
@@ -115,12 +131,53 @@ void BOX::draw(){
     return;
 }
 
+void drawScore(int x, int y, int col, int cntb, int cntw, int stu = 0){
+    settextstyle(30, 0, _T("宋体"));
+    char str[20];
+    RECT r;
+    clearrectangle(leftLenth-20, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90);
+    r = {leftLenth-20, upLenth+N*step+50, leftLenth+20+2*step, upLenth+N*step+90};
+    sprintf(str, "当前:%s", col ? "白色" : "黑色");
+    drawtext(_T(str), &r, DT_SINGLELINE);
+    r = {leftLenth+20+2*step, upLenth+N*step+50, leftLenth+20+4*step, upLenth+N*step+90};
+    sprintf(str, "白色:%d", cntb);
+    drawtext(_T(str), &r, DT_SINGLELINE);
+    r = {leftLenth+20+4*step, upLenth+N*step+50, leftLenth+20+6*step, upLenth+N*step+90};
+    sprintf(str, "黑色:%d", cntw);
+    drawtext(_T(str), &r, DT_SINGLELINE);
+    r = {leftLenth+20+6*step, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90};
+    switch (stu){
+        case 0:
+            drawtext(_T(""), &r, DT_SINGLELINE);
+            break;
+        case 1:
+            drawtext(_T("校验中"), &r, DT_SINGLELINE);
+            break;
+    }
+}
+
+void drawWin(int cntb, int cntw){
+    settextstyle(60, 0, _T("宋体"));
+    settextcolor(RED);
+    clearrectangle(leftLenth-20, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90);
+    RECT r = {leftLenth-20, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+downLenth+10};
+    if (cntb > cntw){
+        drawtext(_T("黑色胜"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    else if (cntb < cntw){
+        drawtext(_T("白色胜"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    else{
+        drawtext(_T("平局"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+}
+
 int checkLine(int x, int y, int dx, int dy, int col){
     int i, j;
     for (i = x+dx, j = y+dy; i >= 0 && i < 8 && j >= 0 && j < 8; i += dx, j += dy){
         if (!chess[i][j].used) break;
         if (chess[i][j].col == col && i == x+dx && j == y+dy) break;
-        if (chess[i][j].col == col && (i != x+dx != j != y+dy)){
+        if (chess[i][j].col == col && (i != x+dx || j != y+dy)){
             if(dx != 0)
                 return (i-x)/dx - 1;
             return (j-y)/dy - 1;
@@ -149,25 +206,40 @@ bool check(int x, int y, int col){
     return false;
 }
 
-void reversi(int x, int y, int col){
+void reversi(int x, int y, int col, int *cntw, int *cntb){
     int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     int dy[8] = {1, 1, 0, -1, -1, -1, 0, 1};
     for (int k = 0; k < 8; k++){
         int cnt = checkLine(x, y, dx[k], dy[k], col);
         if (cnt){
             reversiLine(x, y, dx[k], dy[k], cnt, col);
+            cntw += col ? cnt : -cnt;
+            cntb += col ? -cnt : cnt;
         }
     }
+    cntw += col ? 1 : 0;
+    cntb += col ? 0 : 1;
+    drawScore(x, y, col, *cntb, *cntw);
+}
+
+bool checkAvilable(int col){
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            if (!chess[i][j].used && check(i, j, col))
+                return true;
+    return false;
 }
 
 void game(){
+    int cntw = 2, cntb = 2;
     int oldi, oldj;
     int i, j;
-    player = 0;
+    bool player = 0;
     chess[3][3].col = 0, chess[3][3].color = BLACK, chess[3][3].draw(), chess[3][3].used = 1;
     chess[3][4].col = 1, chess[3][4].color = WHITE, chess[3][4].draw(), chess[3][4].used = 1;
     chess[4][3].col = 1, chess[4][3].color = WHITE, chess[4][3].draw(), chess[4][3].used = 1;
     chess[4][4].col = 0, chess[4][4].color = BLACK, chess[4][4].draw(), chess[4][4].used = 1;
+    drawScore(-1, -1, player, cntb, cntw);
     while(true){
         NEXTPLAYER:
         MOUSEMSG mouse = GetMouseMsg();
@@ -183,8 +255,11 @@ void game(){
                                 chess[i][j].color = player ? WHITE : BLACK;
                                 chess[i][j].draw();
                                 chess[i][j].used = 1;
-                                reversi(i, j, player);
+                                reversi(i, j, player, &cntw, &cntb);
                                 player = !player;
+                                if(!checkAvilable(player))
+                                    goto WIN;
+                                drawScore(i, j, player, cntb, cntw);
                                 goto NEXTPLAYER;
                             }
                         }
@@ -199,6 +274,14 @@ void game(){
                 }
             }
         }
+    }
+    WIN:
+    drawScore(i, j, player, cntb, cntw);
+    drawWin(cntb, cntw);
+    while(true){
+        MOUSEMSG mouse = GetMouseMsg();
+        if (mouse.mkLButton)
+            ;//break;
     }
     return;
 }
