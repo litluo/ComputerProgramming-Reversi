@@ -4,6 +4,7 @@
 */
 
 #include<bits/stdc++.h>
+#include<time.h>
 #include <graphics.h>
 using namespace std;
 
@@ -27,25 +28,55 @@ class BOX{
         void draw();
 };
 
-class SilentChess{
+void copy(CHESS **a, CHESS b[N][N]);
+
+class TreeNode{
     public:
-        int x = 0;
-        int y = 0;
-        bool used = 0;
-        bool col = 0; // 0 for black, 1 for white
+        TreeNode(int parent, int col):parent(parent), col(col){
+            w = 0;
+            n = 0;
+            memset(child, -1, sizeof(child));
+        }
+    public:
+        int parent;
+        int w, n, col;
+        int child[64];
 };
 
-struct TreeNode{
-    int x = 0;
-    int y = 0;
-    int cnt = 0;
-    int col = 0;
-    TreeNode *next = NULL;
+class HumanPlayer{
+    public:
+        int col = 0;
+    public:
+        void play(int *cnt);
 };
 
 class RoxannePlayer{
     public:
-        int roxanne_table[N][N] = {0};
+        RoxannePlayer(int col):col(col){
+            ;
+        }
+    public:
+        int roxanne_table[N][N];
+        int col;
+    public:
+        void roxanne_select();
+        void get_move();
+};
+
+class AIPlayer{
+    public:
+        int col = 0;
+        int timelimit = 2;
+        CHESS board[N][N];
+        RoxannePlayer sim_black = RoxannePlayer(0);
+        RoxannePlayer sim_white = RoxannePlayer(1);
+    public:
+        void mcts();
+        TreeNode select(TreeNode node, CHESS board[N][N]);
+        void expand(TreeNode node, CHESS board[N][N]);
+        void simulate(TreeNode node, CHESS board[N][N]);
+        void back_prop(TreeNode node, int score);
+        void get_move(CHESS board[N][N]);
 };
 
 void init();
@@ -131,7 +162,7 @@ void BOX::draw(){
     return;
 }
 
-void drawScore(int x, int y, int col, int cntb, int cntw, int stu = 0){
+void drawScore(int x, int y, int col, int *cnt, int stu = 0){
     settextstyle(30, 0, _T("宋体"));
     char str[20];
     RECT r;
@@ -140,10 +171,10 @@ void drawScore(int x, int y, int col, int cntb, int cntw, int stu = 0){
     sprintf(str, "当前:%s", col ? "白色" : "黑色");
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+2*step, upLenth+N*step+50, leftLenth+20+4*step, upLenth+N*step+90};
-    sprintf(str, "白色:%d", cntb);
+    sprintf(str, "白色:%d", cnt[1]);
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+4*step, upLenth+N*step+50, leftLenth+20+6*step, upLenth+N*step+90};
-    sprintf(str, "黑色:%d", cntw);
+    sprintf(str, "黑色:%d", cnt[0]);
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+6*step, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90};
     switch (stu){
@@ -156,15 +187,15 @@ void drawScore(int x, int y, int col, int cntb, int cntw, int stu = 0){
     }
 }
 
-void drawWin(int cntb, int cntw){
+void drawWin(int *cnt){
     settextstyle(60, 0, _T("宋体"));
     settextcolor(RED);
     clearrectangle(leftLenth-20, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90);
     RECT r = {leftLenth-20, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+downLenth+10};
-    if (cntb > cntw){
+    if (cnt[0] > cnt[1]){
         drawtext(_T("黑色胜"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    else if (cntb < cntw){
+    else if (cnt[0] < cnt[1]){
         drawtext(_T("白色胜"), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
     else{
@@ -206,20 +237,19 @@ bool check(int x, int y, int col){
     return false;
 }
 
-void reversi(int x, int y, int col, int *cntw, int *cntb){
+void reversi(int x, int y, int col, int *cnt){
     int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     int dy[8] = {1, 1, 0, -1, -1, -1, 0, 1};
     for (int k = 0; k < 8; k++){
-        int cnt = checkLine(x, y, dx[k], dy[k], col);
-        if (cnt){
-            reversiLine(x, y, dx[k], dy[k], cnt, col);
-            cntw += col ? cnt : -cnt;
-            cntb += col ? -cnt : cnt;
+        int res = checkLine(x, y, dx[k], dy[k], col);
+        if (res){
+            reversiLine(x, y, dx[k], dy[k], res, col);
+            cnt[col] += res;
+            cnt[!col] -= res;
         }
     }
-    cntw += col ? 1 : 0;
-    cntb += col ? 0 : 1;
-    drawScore(x, y, col, *cntb, *cntw);
+    cnt[col] += 1;
+    drawScore(x, y, col, cnt);
 }
 
 bool checkAvilable(int col){
@@ -230,18 +260,9 @@ bool checkAvilable(int col){
     return false;
 }
 
-void game(){
-    int cntw = 2, cntb = 2;
+void HumanPlayer::play(int *cnt){
     int oldi, oldj;
-    int i, j;
-    bool player = 0;
-    chess[3][3].col = 0, chess[3][3].color = BLACK, chess[3][3].draw(), chess[3][3].used = 1;
-    chess[3][4].col = 1, chess[3][4].color = WHITE, chess[3][4].draw(), chess[3][4].used = 1;
-    chess[4][3].col = 1, chess[4][3].color = WHITE, chess[4][3].draw(), chess[4][3].used = 1;
-    chess[4][4].col = 0, chess[4][4].color = BLACK, chess[4][4].draw(), chess[4][4].used = 1;
-    drawScore(-1, -1, player, cntb, cntw);
-    while(true){
-        NEXTPLAYER:
+    while(1){
         MOUSEMSG mouse = GetMouseMsg();
         for (int i = 0; i < N; i++){
             for (int j = 0; j < N; j++){
@@ -250,17 +271,15 @@ void game(){
                         continue;
                     if (mouse.mkLButton){
                         if (!chess[i][j].used){
-                            if (check(i, j, player)){
-                                chess[i][j].col = player;
-                                chess[i][j].color = player ? WHITE : BLACK;
+                            if (check(i, j, col)){
+                                chess[i][j].col = col;
+                                chess[i][j].color = col ? WHITE : BLACK;
                                 chess[i][j].draw();
                                 chess[i][j].used = 1;
-                                reversi(i, j, player, &cntw, &cntb);
-                                player = !player;
-                                if(!checkAvilable(player))
-                                    goto WIN;
-                                drawScore(i, j, player, cntb, cntw);
-                                goto NEXTPLAYER;
+                                reversi(i, j, col, cnt);
+                                box[oldi][oldj].color = RGB(255, 205, 150);
+                                box[oldi][oldj].draw();
+                                return;
                             }
                         }
                     }
@@ -275,9 +294,52 @@ void game(){
             }
         }
     }
-    WIN:
-    drawScore(i, j, player, cntb, cntw);
-    drawWin(cntb, cntw);
+}
+
+TreeNode AIPlayer::select(TreeNode node, CHESS board[N][N]){
+    if (node.child[0] == -1){
+        return node;
+    }
+    for (int i = 0; node.child[i] != -1; i++){
+        ;
+    }
+}
+
+void AIPlayer::mcts(){
+    TreeNode root(-1, col);
+    int tick = time(NULL);
+    while(time(NULL) - tick < timelimit){
+        memcpy(board, chess, sizeof(chess));
+        TreeNode choice(-1, col);
+        choice = select(root, board);
+        expand(root, board);
+    }
+}
+
+void game(){
+    int cnt[2];
+    cnt[0] = 2, cnt[1] = 2;
+    int i, j;
+    bool player = 0;
+    HumanPlayer HuPlayer[2];
+    HuPlayer[0].col = 0, HuPlayer[1].col = 1;
+    chess[3][3].col = 0, chess[3][3].color = BLACK, chess[3][3].draw(), chess[3][3].used = 1;
+    chess[3][4].col = 1, chess[3][4].color = WHITE, chess[3][4].draw(), chess[3][4].used = 1;
+    chess[4][3].col = 1, chess[4][3].color = WHITE, chess[4][3].draw(), chess[4][3].used = 1;
+    chess[4][4].col = 0, chess[4][4].color = BLACK, chess[4][4].draw(), chess[4][4].used = 1;
+    drawScore(-1, -1, player, cnt);
+    while(true){
+        if(HuPlayer[1].col = player)
+            HuPlayer[1].play(cnt);
+        else
+            HuPlayer[0].play(cnt);
+        player = !player;
+        drawScore(i, j, player, cnt);
+        if (!checkAvilable(player)){
+            break;
+        }
+    }
+    drawWin(cnt);
     while(true){
         MOUSEMSG mouse = GetMouseMsg();
         if (mouse.mkLButton)
