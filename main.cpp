@@ -14,12 +14,10 @@ class BOARD{
     public:
         BOARD(){
             memset(chess, -1, sizeof(chess));
-            cnt[0] = 2, cnt[1] = 2;
-            chess[3][3] = 0;
-            chess[4][4] = 0;
-            chess[3][4] = 1;
-            chess[4][3] = 1;
-        }
+            cnt[0] = cnt[1] = 2;
+            chess[3][3] = chess[4][4] = 0;
+            chess[3][4] = chess[4][3] = 1;
+    }
     public:
         int chess[N][N]; // -1 for empty, 0 for black, 1 for white
         int cnt[2];
@@ -43,6 +41,10 @@ class BOX{
 
 class HumanPlayer{
     public:
+        HumanPlayer(int col):col(col){
+            ;
+        }
+    public:
         int col = 0;
     public:
         void play(BOARD *selfboard);
@@ -51,14 +53,22 @@ class HumanPlayer{
 class RoxannePlayer{
     public:
         RoxannePlayer(int col):col(col){
-            ;
         }
     public:
-        int roxanne_table[N][N];
+        int roxanne_table[N][N] = {
+                {1, 5, 3, 3, 3, 3, 5, 1},
+                {5, 5, 4, 4, 4, 4, 5, 5},
+                {3, 4, 2, 2, 2, 2, 4, 3},
+                {3, 4, 2, 9, 9, 2, 4, 3},
+                {3, 4, 2, 9, 9, 2, 4, 3},
+                {3, 4, 2, 2, 2, 2, 4, 3},
+                {5, 5, 4, 4, 4, 4, 5, 5},
+                {1, 5, 3, 3, 3, 3, 5, 1}
+            };
         int col;
     public:
         void roxanne_select();
-        void play(BOARD selfboard);
+        void play(BOARD *selfboard, int d);
 };
 /*
 class AIPlayer{
@@ -251,6 +261,8 @@ bool BOARD::checkAvilable(int col){
     return false;
 }
 
+
+
 void HumanPlayer::play(BOARD *selfboard){
     int oldi, oldj;
     while(1){
@@ -285,10 +297,19 @@ void HumanPlayer::play(BOARD *selfboard){
     }
 }
 
+void RoxannePlayer::play(BOARD *selfboard, int d){
+    int mminx, mminy, mmin = 8;
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            if((*selfboard).chess[i][j] == -1 && roxanne_table[i][j] < mmin && (*selfboard).check(i, j, col))
+                mminx = i, mminy = j, mmin = roxanne_table[i][j];
+    (*selfboard).chess[mminx][mminy] = col;
+    (*selfboard).draw(mminx, mminy);
+    (*selfboard).reversi(mminx, mminy, col, d);
+}
+
 void game(){
     bool player = 0;
-    HumanPlayer HuPlayer[2];
-    HuPlayer[0].col = 0, HuPlayer[1].col = 1;
     BOARD showboard;
     showboard.draw(3, 3);
     showboard.draw(4, 4);
@@ -296,16 +317,21 @@ void game(){
     showboard.draw(4, 3);
     drawScore(player, showboard);
     while(true){
-        if(HuPlayer[1].col = player)
-            HuPlayer[1].play(&showboard);
-        else
-            HuPlayer[0].play(&showboard);
+        if (player){
+            RoxannePlayer roxanneplayer = RoxannePlayer(player);
+            roxanneplayer.play(&showboard, 1);
+        }
+        else{
+            RoxannePlayer roxanneplayer = RoxannePlayer(player);
+            roxanneplayer.play(&showboard, 1);
+        }
         player = !player;
         drawScore(player, showboard, 1);
         if (!showboard.checkAvilable(player)){
             break;
         }
         drawScore(player, showboard, 0);
+        Sleep(1000);
     }
     drawWin(showboard);
     while(true){
