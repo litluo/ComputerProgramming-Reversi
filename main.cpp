@@ -1,14 +1,20 @@
-/*
-本作业为黑白棋对弈，主要是帮助学生更加熟练的掌握程序设计。掌握怎么去分析和设计程序的功能。
-完成作业需要五个阶段：分析设计，绘制棋盘。检测有效走法。人类玩家走法。人类玩家与计算机主体循环。计算机走法。
-*/
-
 #include<bits/stdc++.h>
 #include<time.h>
 #include <graphics.h>
 using namespace std;
 
 const int N = 8;
+
+typedef pair<int, int> pii;
+
+class BOX{
+    public:
+        int x1, y1, x2, y2;
+        int used = 0;
+        COLORREF color = RGB(255, 205, 150);
+    public:
+        void draw();
+};
 
 class BOARD{
     public:
@@ -28,15 +34,23 @@ class BOARD{
         void reversi(int x, int y, int col, int d);
         void reversiLine(int x, int y, int dx, int dy, int tot, int col, int d);
         bool checkAvilable(int col);
+        void copy(BOARD selboard);
+        void play(int x, int y, int col, int d);
 };
 
-class BOX{
+class TreeNode{
     public:
-        int x1, y1, x2, y2;
-        int used = 0;
-        COLORREF color = RGB(255, 205, 150);
+        TreeNode(TreeNode *parent, int col):parent(parent), col(col){
+            for (int i = 0; i < 64; i++)
+                child[i] = NULL;
+        }
     public:
-        void draw();
+        TreeNode *parent;
+        TreeNode *child[64];
+        pair<int, int> pos;
+        int w = 0;
+        int n = 0;
+        int col = 0;
 };
 
 class HumanPlayer{
@@ -44,8 +58,8 @@ class HumanPlayer{
         HumanPlayer(int col):col(col){
             ;
         }
-    public:
-        int col = 0;
+    private:
+        int col;
     public:
         void play(BOARD *selfboard);
 };
@@ -54,7 +68,7 @@ class RoxannePlayer{
     public:
         RoxannePlayer(int col):col(col){
         }
-    public:
+    private:
         int roxanne_table[N][N] = {
                 {1, 5, 3, 3, 3, 3, 5, 1},
                 {5, 5, 4, 4, 4, 4, 5, 5},
@@ -67,31 +81,53 @@ class RoxannePlayer{
             };
         int col;
     public:
-        void roxanne_select();
         void play(BOARD *selfboard, int d);
 };
-/*
-class AIPlayer{
+
+class MobilityPlayer{
     public:
-        int col = 0;
-        int timelimit = 2;
-        CHESS board[N][N];
-        RoxannePlayer sim_black = RoxannePlayer(0);
-        RoxannePlayer sim_white = RoxannePlayer(1);
+        MobilityPlayer(int col):col(col){
+        }
+    private:
+        int mobility_table[N][N] = {
+                {1, 8, 2, 4, 4, 2, 8, 1},
+                {8, 9, 7, 6, 6, 7, 9, 8},
+                {2, 7, 3, 5, 5, 3, 7, 2},
+                {4, 6, 5, 10, 10, 5, 6, 4},
+                {4, 6, 5, 10, 10, 5, 6, 4},
+                {2, 7, 3, 5, 5, 3, 7, 2},
+                {8, 9, 7, 6, 6, 7, 9, 8},
+                {1, 8, 2, 4, 4, 2, 8, 1}
+            };
+        int col;
     public:
-        void mcts();
-        TreeNode select(TreeNode node, CHESS board[N][N]);
-        void expand(TreeNode node, CHESS board[N][N]);
-        void simulate(TreeNode node, CHESS board[N][N]);
-        void back_prop(TreeNode node, int score);
-        void get_move(CHESS board[N][N]);
+        void play(BOARD *selfboard, int d);
 };
-*/
+
+class MCTSPlayer{
+    public:
+        MCTSPlayer(int col):col(col){
+            ;
+        }
+    private:
+        int col;
+        int tick;
+    public:
+        void play(BOARD *selfboard);
+    private:
+        pii mcts(BOARD selfboard);
+        TreeNode* select(TreeNode *node, BOARD *selfboard);
+        void expand(TreeNode *node, BOARD *selfboard);
+        int simulate(TreeNode *node, BOARD selfboard);
+        void back_prop(TreeNode *node, int score);
+};
+
 void init();
 void game();
 void drawChessboard();
 
 BOX box[N][N];
+pii las;
 const int upLenth = 100, downLenth = 100, leftLenth = 80, rightLenth = 80, step = 60;
 
 int main(){
@@ -111,8 +147,8 @@ void drawChessboard(){
 
     setfillcolor(RGB(255, 205, 150));
     solidrectangle(leftLenth-20, upLenth-20, leftLenth+N*step+40, upLenth+N*step+40);
-    setlinestyle(PS_SOLID,2);//画实线，宽度为两个像素
-	setcolor(RGB(0,0,0));//设置为黑色
+    setlinestyle(PS_SOLID,2);
+	setcolor(RGB(0,0,0));
     for(int i = 0; i <= N; i++){
         line(i*step+leftLenth+20,upLenth+20,i*step+leftLenth+20,N*step+upLenth+20);
 		line(leftLenth+20,i*step+upLenth+20,N*step+leftLenth+20,i*step+upLenth+20);
@@ -261,7 +297,30 @@ bool BOARD::checkAvilable(int col){
     return false;
 }
 
+void BOARD::copy(BOARD selfboard){
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            (*this).chess[i][j] = selfboard.chess[i][j];
+    (*this).cnt[0] = selfboard.cnt[0];
+    (*this).cnt[1] = selfboard.cnt[1];
+}
 
+void BOARD::play(int x, int y, int col, int d){
+    chess[x][y] = col;
+    if (d)
+        draw(x, y);
+    reversi(x, y, col, d);
+    if (d){
+        box[x][y].color = LIGHTCYAN;
+        box[x][y].draw();
+        int lx = las.first, ly = las.second;
+        if (lx != -1 && ly != -1){
+            box[lx][ly].color = RGB(255, 205, 150);
+            box[lx][ly].draw();
+        }
+        las = make_pair(x, y);
+    }
+}
 
 void HumanPlayer::play(BOARD *selfboard){
     int oldi, oldj;
@@ -275,11 +334,9 @@ void HumanPlayer::play(BOARD *selfboard){
                     if (mouse.mkLButton){
                         if ((*selfboard).chess[i][j] == -1){
                             if ((*selfboard).check(i, j, col)){
-                                (*selfboard).chess[i][j] = col;
-                                (*selfboard).draw(i, j);
-                                (*selfboard).reversi(i, j, col, 1);
                                 box[oldi][oldj].color = RGB(255, 205, 150);
                                 box[oldi][oldj].draw();
+                                (*selfboard).play(i, j, col, 1);
                                 return;
                             }
                         }
@@ -303,13 +360,122 @@ void RoxannePlayer::play(BOARD *selfboard, int d){
         for (int j = 0; j < N; j++)
             if((*selfboard).chess[i][j] == -1 && roxanne_table[i][j] < mmin && (*selfboard).check(i, j, col))
                 mminx = i, mminy = j, mmin = roxanne_table[i][j];
-    (*selfboard).chess[mminx][mminy] = col;
-    (*selfboard).draw(mminx, mminy);
-    (*selfboard).reversi(mminx, mminy, col, d);
+    (*selfboard).play(mminx, mminy, col, d);
+}
+
+void MobilityPlayer::play(BOARD *selfboard, int d){
+    int mminx, mminy, mmin = 21;
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            if((*selfboard).chess[i][j] == -1 && mobility_table[i][j] < mmin && (*selfboard).check(i, j, col))
+                mminx = i, mminy = j, mmin = mobility_table[i][j];
+    (*selfboard).play(mminx, mminy, col, d);
+}
+
+pii MCTSPlayer::mcts(BOARD selfboard){
+    TreeNode root = TreeNode(NULL, col);
+    while (time(NULL) - tick < 2){
+        BOARD silentboard;
+        silentboard.copy(selfboard);
+        TreeNode *choice;
+        choice = select(&root, &silentboard);
+        expand(choice, &silentboard);
+        int score = simulate(choice, silentboard);
+        /*
+        if ((*choice).col != col)
+            score = 1 - score;
+        */
+        back_prop(choice, score);
+    }
+    int mmax = -1;
+    TreeNode *mmove;
+    int i = 0;
+    while(root.child[i] != NULL){
+        if ((*root.child[i]).n > mmax){
+            mmax = (*root.child[i]).n;
+            mmove = root.child[i];
+        }
+        i++;
+    }
+    return (*mmove).pos;
+}
+
+TreeNode* MCTSPlayer::select(TreeNode *node, BOARD *selfboard){
+    if ((*node).child[0] == NULL)
+        return node;
+    TreeNode *mmove;
+    double mmax = -1;
+    int i = 0;
+    while((*node).child[i] != NULL){
+        if ((*(*node).child[i]).n == 0){
+            mmove = (*node).child[i];
+            break;
+        }
+        int N = (*node).n;
+        int n = (*(*node).child[i]).n;
+        int w = (*(*node).child[i]).w;
+        double score = (double)w / n + sqrt(2.0 * log(N) / n);
+        if (score > mmax){
+            mmax = score;
+            mmove = (*node).child[i];
+        }
+        i++;
+    }
+    if (node->parent != NULL){
+        int x = (*mmove).pos.first, y = (*mmove).pos.second;
+        (*selfboard).chess[x][y] = !(*node).col;
+        (*selfboard).reversi(x, y, !(*node).col, 0);
+    }
+    return select(mmove, selfboard);
+}
+
+void MCTSPlayer::expand(TreeNode *node, BOARD *selfboard){
+    int tot = 0;
+    while((*node).child[tot] != NULL)
+        tot++;
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++){
+            if ((*selfboard).chess[i][j] == -1 && (*selfboard).check(i, j, (*node).col)){
+                (*node).child[tot] = new TreeNode(node, !((*node).col));
+                (*(*node).child[tot]).pos = make_pair(i, j);
+                tot++;
+            }
+        }
+}
+
+int MCTSPlayer::simulate(TreeNode *node, BOARD selfboard){
+    int colnow = (*node).col;
+    BOARD silentboard;
+    silentboard.copy(selfboard);
+    while(true){
+        if (!silentboard.checkAvilable(colnow)){
+            break;
+        }
+        RoxannePlayer roxanneplayer = RoxannePlayer(colnow);
+        roxanneplayer.play(&silentboard, 0);
+        colnow = !colnow;
+    }
+    return silentboard.cnt[col] > silentboard.cnt[!col] ? 1 : 0;
+}
+
+void MCTSPlayer::back_prop(TreeNode *node, int score){
+    (*node).n++;
+    (*node).w += score;
+    if ((*node).parent != NULL)
+        back_prop((*node).parent, 1-score);
+}
+
+void MCTSPlayer::play(BOARD *selfboard){
+    tick = time(NULL);
+    pii p;
+    p = mcts(*selfboard);
+    int x = p.first, y = p.second;
+    (*selfboard).play(x, y, col, 1);
 }
 
 void game(){
     bool player = 0;
+    las = make_pair(-1, -1);
     BOARD showboard;
     showboard.draw(3, 3);
     showboard.draw(4, 4);
@@ -318,12 +484,12 @@ void game(){
     drawScore(player, showboard);
     while(true){
         if (player){
-            RoxannePlayer roxanneplayer = RoxannePlayer(player);
-            roxanneplayer.play(&showboard, 1);
+            MCTSPlayer mctsplayer = MCTSPlayer(player);
+            mctsplayer.play(&showboard);
         }
         else{
-            RoxannePlayer roxanneplayer = RoxannePlayer(player);
-            roxanneplayer.play(&showboard, 1);
+            HumanPlayer roxanneplayer = HumanPlayer(player);
+            roxanneplayer.play(&showboard);
         }
         player = !player;
         drawScore(player, showboard, 1);
