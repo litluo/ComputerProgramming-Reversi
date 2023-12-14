@@ -319,6 +319,7 @@ void BOARD::play(int x, int y, int col, int d){
             box[lx][ly].draw();
         }
         las = make_pair(x, y);
+        printf("%d %d\n", x, y);
     }
 }
 
@@ -357,24 +358,30 @@ void HumanPlayer::play(BOARD *selfboard){
 void RoxannePlayer::play(BOARD *selfboard, int d){
     int mminx, mminy, mmin = 8;
     for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
+        for (int j = 0; j < N; j++){
             if((*selfboard).chess[i][j] == -1 && roxanne_table[i][j] < mmin && (*selfboard).check(i, j, col))
                 mminx = i, mminy = j, mmin = roxanne_table[i][j];
+            else if ((*selfboard).chess[i][j] == -1 && roxanne_table[i][j] == mmin && rand()%2 && (*selfboard).check(i, j, col))
+                mminx = i, mminy = j, mmin = roxanne_table[i][j];
+        }
     (*selfboard).play(mminx, mminy, col, d);
 }
 
 void MobilityPlayer::play(BOARD *selfboard, int d){
     int mminx, mminy, mmin = 21;
     for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
+        for (int j = 0; j < N; j++){
             if((*selfboard).chess[i][j] == -1 && mobility_table[i][j] < mmin && (*selfboard).check(i, j, col))
                 mminx = i, mminy = j, mmin = mobility_table[i][j];
+            else if((*selfboard).chess[i][j] == -1 && mobility_table[i][j] == mmin && rand()%2 && (*selfboard).check(i, j, col))
+                mminx = i, mminy = j, mmin = mobility_table[i][j];
+            }
     (*selfboard).play(mminx, mminy, col, d);
 }
 
 pii MCTSPlayer::mcts(BOARD selfboard){
     TreeNode root = TreeNode(NULL, col);
-    while (time(NULL) - tick < 2){
+    while (time(NULL) - tick < 3){
         BOARD silentboard;
         silentboard.copy(selfboard);
         TreeNode *choice;
@@ -391,6 +398,7 @@ pii MCTSPlayer::mcts(BOARD selfboard){
     TreeNode *mmove;
     int i = 0;
     while(root.child[i] != NULL){
+        printf("%d %d %d %d\n", (*root.child[i]).pos.first, (*root.child[i]).pos.second, (*root.child[i]).w, (*root.child[i]).n);
         if ((*root.child[i]).n > mmax){
             mmax = (*root.child[i]).n;
             mmove = root.child[i];
@@ -462,7 +470,7 @@ void MCTSPlayer::back_prop(TreeNode *node, int score){
     (*node).n++;
     (*node).w += score;
     if ((*node).parent != NULL)
-        back_prop((*node).parent, 1-score);
+        back_prop((*node).parent, score);
 }
 
 void MCTSPlayer::play(BOARD *selfboard){
@@ -488,8 +496,8 @@ void game(){
             mctsplayer.play(&showboard);
         }
         else{
-            HumanPlayer roxanneplayer = HumanPlayer(player);
-            roxanneplayer.play(&showboard);
+            HumanPlayer humanplayer = HumanPlayer(player);
+            humanplayer.play(&showboard);
         }
         player = !player;
         drawScore(player, showboard, 1);
@@ -497,7 +505,7 @@ void game(){
             break;
         }
         drawScore(player, showboard, 0);
-        Sleep(1000);
+        //Sleep(1000);
     }
     drawWin(showboard);
     while(true){
@@ -507,3 +515,17 @@ void game(){
     }
     return;
 }
+
+/*
+MCTSPlayer mctsplayer = MCTSPlayer(player);
+mctsplayer.play(&showboard);
+
+HumanPlayer humanplayer = HumanPlayer(player);
+humanplayer.play(&showboard);
+
+RoxannePlayer roxanneplayer = RoxannePlayer(player);
+roxanneplayer.play(&showboard, 1);
+
+MobilityPlayer mobilityplayer = MobilityPlayer(player);
+mobilityplayer.play(&showboard, 1);
+*/
