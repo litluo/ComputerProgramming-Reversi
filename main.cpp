@@ -3,9 +3,25 @@
 #include <graphics.h>
 using namespace std;
 
+typedef pair<int, int> pii;
+
 const int N = 8;
 
-typedef pair<int, int> pii;
+void init(int *player);
+void game(int player[2]);
+void drawChessboard();
+
+const int upLenth = 100, downLenth = 100, leftLenth = 80, rightLenth = 80, step = 60;
+
+int main(){
+    int player[2];
+    init(player);
+    drawChessboard();
+    game(player);
+    printf("游戏结束\n");
+    system("pause");
+    return 0;
+}
 
 class BOX{
     public:
@@ -122,20 +138,8 @@ class MCTSPlayer{
         void back_prop(TreeNode *node, int score);
 };
 
-void init();
-void game();
-void drawChessboard();
-
 BOX box[N][N];
 pii las;
-const int upLenth = 100, downLenth = 100, leftLenth = 80, rightLenth = 80, step = 60;
-
-int main(){
-    initgraph(leftLenth+N*step+rightLenth+20, upLenth+N*step+downLenth+20, NOMINIMIZE);
-    drawChessboard();
-    game();
-    return 0;
-}
 
 void drawChessboard(){
     TCHAR strnum[8][3] = { _T("1"),_T("2") ,_T("3") ,_T("4"),_T("5") ,_T("6"), _T("7"), _T("8")};
@@ -209,10 +213,10 @@ void drawScore(int col, BOARD selfboard, int stu = 0){
     sprintf(str, "当前:%s", col ? "白色" : "黑色");
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+2*step, upLenth+N*step+50, leftLenth+20+4*step, upLenth+N*step+90};
-    sprintf(str, "白色:%d", selfboard.cnt[1]);
+    sprintf(str, "黑色:%d", selfboard.cnt[0]);
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+4*step, upLenth+N*step+50, leftLenth+20+6*step, upLenth+N*step+90};
-    sprintf(str, "黑色:%d", selfboard.cnt[0]);
+    sprintf(str, "白色:%d", selfboard.cnt[1]);
     drawtext(_T(str), &r, DT_SINGLELINE);
     r = {leftLenth+20+6*step, upLenth+N*step+50, leftLenth+20+8*step, upLenth+N*step+90};
     switch (stu){
@@ -221,6 +225,9 @@ void drawScore(int col, BOARD selfboard, int stu = 0){
             break;
         case 1:
             drawtext(_T("校验中"), &r, DT_SINGLELINE);
+            break;
+        case 2:
+            drawtext(_T("电脑思考"), &r, DT_SINGLELINE);
             break;
     }
 }
@@ -319,7 +326,7 @@ void BOARD::play(int x, int y, int col, int d){
             box[lx][ly].draw();
         }
         las = make_pair(x, y);
-        printf("%d %d\n", x, y);
+        //printf("%d %d\n", x, y);
     }
 }
 
@@ -398,7 +405,7 @@ pii MCTSPlayer::mcts(BOARD selfboard){
     TreeNode *mmove;
     int i = 0;
     while(root.child[i] != NULL){
-        printf("%d %d %d %d\n", (*root.child[i]).pos.first, (*root.child[i]).pos.second, (*root.child[i]).w, (*root.child[i]).n);
+        //printf("%d %d %d %d\n", (*root.child[i]).pos.first, (*root.child[i]).pos.second, (*root.child[i]).w, (*root.child[i]).n);
         if ((*root.child[i]).n > mmax){
             mmax = (*root.child[i]).n;
             mmove = root.child[i];
@@ -481,51 +488,74 @@ void MCTSPlayer::play(BOARD *selfboard){
     (*selfboard).play(x, y, col, 1);
 }
 
-void game(){
-    bool player = 0;
+void init(int *player){
+    printf("请选择玩家：\n");
+    printf("1.人类玩家\n");
+    printf("2.电脑1（Roxanne策略）\n");
+    printf("3.电脑2（Mobility策略）\n");
+    printf("4.电脑3（MCTS策略）\n");
+    while(player[0] < 1 || player[0] > 4){
+        printf("请输入玩家1（黑棋先手）：");
+        scanf("%d", &player[0]);
+    }
+    while(player[1] < 1 || player[1] > 4){
+        printf("请输入玩家2（白棋后手）：");
+        scanf("%d", &player[1]);
+    }
+    initgraph(leftLenth+N*step+rightLenth+20, upLenth+N*step+downLenth+20, NOMINIMIZE);
+    return;
+}
+
+void game(int player[2]){
+    bool col = 0;
     las = make_pair(-1, -1);
     BOARD showboard;
     showboard.draw(3, 3);
     showboard.draw(4, 4);
     showboard.draw(3, 4);
     showboard.draw(4, 3);
-    drawScore(player, showboard);
+    drawScore(col, showboard);
     while(true){
-        if (player){
-            MCTSPlayer mctsplayer = MCTSPlayer(player);
-            mctsplayer.play(&showboard);
+        switch(player[col]){
+            case 1:{
+                HumanPlayer humanplayer = HumanPlayer(col);
+                humanplayer.play(&showboard);
+                break;
+            }
+            case 2:{
+                drawScore(col, showboard, 2);
+                RoxannePlayer roxanneplayer = RoxannePlayer(col);
+                Sleep(1000);
+                roxanneplayer.play(&showboard, 1);
+                break;
+            }
+            case 3:{
+                drawScore(col, showboard, 2);
+                MobilityPlayer mobilityplayer = MobilityPlayer(col);
+                Sleep(1000);
+                mobilityplayer.play(&showboard, 1);
+                break;
+            }
+            case 4:{
+                drawScore(col, showboard, 2);
+                MCTSPlayer mctsplayer = MCTSPlayer(col);
+                mctsplayer.play(&showboard);
+                break;
+            }
         }
-        else{
-            HumanPlayer humanplayer = HumanPlayer(player);
-            humanplayer.play(&showboard);
-        }
-        player = !player;
-        drawScore(player, showboard, 1);
-        if (!showboard.checkAvilable(player)){
+        col = !col;
+        drawScore(col, showboard, 1);
+        if (!showboard.checkAvilable(col)){
             break;
         }
-        drawScore(player, showboard, 0);
-        //Sleep(1000);
+        drawScore(col, showboard, 0);
     }
     drawWin(showboard);
+    printf("%s胜\n", showboard.cnt[0] > showboard.cnt[1] ? "黑色" : "白色");
     while(true){
         MOUSEMSG mouse = GetMouseMsg();
         if (mouse.mkLButton)
-            ;//break;
+            break;
     }
     return;
 }
-
-/*
-MCTSPlayer mctsplayer = MCTSPlayer(player);
-mctsplayer.play(&showboard);
-
-HumanPlayer humanplayer = HumanPlayer(player);
-humanplayer.play(&showboard);
-
-RoxannePlayer roxanneplayer = RoxannePlayer(player);
-roxanneplayer.play(&showboard, 1);
-
-MobilityPlayer mobilityplayer = MobilityPlayer(player);
-mobilityplayer.play(&showboard, 1);
-*/
